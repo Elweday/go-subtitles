@@ -40,18 +40,10 @@ func ReadAndConvertToFrames(jsonString []byte, frameRate int) ([]types.Word, err
 	return items, nil
 }
 
-
-
-
 const (
 	Width     = 1080
 	Height    = 1920
 )
-
-
-
-
-
 
 func DrawFrame(text []types.Word, idx int, perc float64, opts types.SubtitlesOptions, u  types.Updater) *gg.Context {
 	u.Update(&opts, perc)
@@ -67,13 +59,12 @@ func DrawFrame(text []types.Word, idx int, perc float64, opts types.SubtitlesOpt
 	dc.SetRGBA(0, 0, 0, 0)
 	dc.Clear()
 
-	fontPath := "font.ttf" // Replace with your font path
+	fontPath := "font.ttf" 
 	if err := dc.LoadFontFace(fontPath, opts.FontSize); err != nil {
 		panic(err)
 	}
 
 
-	// Calculate the maximum width of the text based on the provided padding
 	maxWidth := float64(Width - 2*opts.Padding)
 
 	startX := opts.Padding
@@ -98,16 +89,26 @@ func DrawFrame(text []types.Word, idx int, perc float64, opts types.SubtitlesOpt
 		
 		wordX := float64(startX)+float64(currWidth)
 		wordY := float64(startY) + float64(currHeight)
+		x := wordX + opts.TextOffsetX;
+		y := wordY - lineHeight + opts.TextOffsetY;
+		w := wordWidth
+		h := lineHeight
+		cx := x + w/2
+		cy := y + h/2
+
 		if i == idx {
+			dc.Push()
 			dc.SetColor(opts.HighlightColor)
-			dc.DrawRectangle(wordX - opts.HighlightPadding + opts.TextOffsetX, wordY - lineHeight - opts.HighlightPadding + opts.TextOffsetY, wordWidth + 2*opts.HighlightPadding, lineHeight + 2*opts.HighlightPadding)
+			dc.ScaleAbout(1.2, 1.6, cx, cy)
+			dc.DrawRoundedRectangle(x, y, w, h, float64(opts.HighlightBorderRadius))
 			dc.Fill()
 			dc.SetColor(opts.FontSelectedColor)
+			dc.Pop()
 			dc.DrawString(word.Value, wordX + opts.TextOffsetX, wordY + opts.TextOffsetY)
 		} else {
+			dc.SetColor(opts.FontColor)
 			dc.DrawString(word.Value, wordX, wordY)
 		}
-		dc.SetColor(opts.FontColor)
 		if i < len(text)-1 {
 			currWidth += wordWidth+spaceWidth
 		}
@@ -147,7 +148,6 @@ func Render(){
 		LineHeight: 80,
 		TextOffsetX: 0,
 		TextOffsetY: 0,
-		TextOpacity: 1,
 	}
 
 	var wg sync.WaitGroup

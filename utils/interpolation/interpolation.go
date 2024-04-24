@@ -45,3 +45,27 @@ func Spring(from, to float64, options utils.SpringOptions) utils.Interpolator {
         return c1 + c2*(1-c3) + c4*c3
     }
 }
+
+
+
+
+func EaseIn(from, to, strength float64) utils.Interpolator {
+    return func(t float64) float64 {
+        return from + (to-from)*math.Pow(t, strength)
+    }
+}
+
+func EaseOut(from, to, strength float64) utils.Interpolator {
+    return func(t float64) float64 {
+        return from + (to-from)*(1-math.Pow(1-t, strength))
+    }
+}
+
+func EaseInOut(from, to, strength float64) utils.Interpolator {
+    return func(t float64) float64 {
+        if t < 0.5 {
+            return EaseIn(from, to, strength)(t * 2) * 0.5
+        }
+        return EaseOut(from, to, strength)((t - 0.5) * 2) * 0.5 + 0.5
+    }
+}
