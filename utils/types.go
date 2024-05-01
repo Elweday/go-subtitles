@@ -7,8 +7,12 @@ type Updater interface {
 	Check(words []Word, index int, i int) bool
 }
 
+/*
+csdfjsdlf jsfkjsdhf kljsdfh 
+*/
 type SubtitlesOptions struct {
-	FontPath              string
+	FontPathRegular       string
+	FontPathBold          string
 	FontSize              float64
 	FontColor             color.RGBA
 	FontSelectedColor     color.RGBA
@@ -17,6 +21,7 @@ type SubtitlesOptions struct {
 	HighlightColor        color.RGBA
 	HighlightBorderRadius int
 	HighlightPadding      float64
+	HighlightScale        float64
 	Padding               int
 	LineWidth             int
 	NSpaces               int
