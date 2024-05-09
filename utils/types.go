@@ -8,11 +8,10 @@ type Updater interface {
 }
 
 /*
-csdfjsdlf jsfkjsdhf kljsdfh 
+csdfjsdlf jsfkjsdhf kljsdfh
 */
 type SubtitlesOptions struct {
-	FontPathRegular       string
-	FontPathBold          string
+	FontFamily            string
 	FontSize              float64
 	FontColor             color.RGBA
 	FontSelectedColor     color.RGBA
@@ -24,46 +23,48 @@ type SubtitlesOptions struct {
 	HighlightScale        float64
 	Padding               int
 	LineWidth             int
-	NSpaces               int
-	LineHeight            float64
+	WordSpacing           int
+	LineSpacing           float64
 	TextOffsetX           float64
 	TextOffsetY           float64
 	TextOpacity           float64
 	RTL                   bool
+	MaxLines              int
+	CurrentLine           int
 }
 
 type Word struct {
-	Time  float64  `json:"time"`
-	Value  string    `json:"word"`
-	Frames int     `json:"frames"`
+	Time        float64 `json:"time"`
+	Duration    float64 `json:"duration"`
+	Value       string  `json:"word"`
+	Frames      int64   `json:"frames"`
+	StartFrames int64   `json:"startFrames"`
 }
 
 type Interpolator func(float64) float64
 
-
 type SpringOptions struct {
-    Stiffness float64 // Spring stiffness
-    Damping   float64 // Damping coefficient
-    Mass      float64 // Mass of the object
+	Stiffness float64 // Spring stiffness
+	Damping   float64 // Damping coefficient
+	Mass      float64 // Mass of the object
 }
 
 type Style struct {
 	options *SubtitlesOptions
-	Update func (opts *SubtitlesOptions, perc float64)
-	Check func(words []Word, index int, i int) bool
+	Update  func(opts *SubtitlesOptions, perc float64)
+	Check   func(words []Word, index int, i int) bool
 }
-
 
 func NewSubtitlesStyle(
 	opts *SubtitlesOptions,
-	Update func (opts *SubtitlesOptions, perc float64),
+	Update func(opts *SubtitlesOptions, perc float64),
 	Check func(words []Word, index int, i int) bool,
 ) *Style {
 
-	return  &Style{
+	return &Style{
 		options: &SubtitlesOptions{},
-		Update: Update,
-		Check: Check,
+		Update:  Update,
+		Check:   Check,
 	}
 
 }

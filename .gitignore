@@ -1,2 +1,6 @@
 *.mp4
 images
+
+.env
+
+*.json
