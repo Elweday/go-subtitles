@@ -7,10 +7,12 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/elweday/go-subtitles/pkg/utils"
 )
 
 func FFmpegCombineImagesToVideo(frames [][]byte, inputVideoData []byte, aspectRatio string, frameRate int) ([]byte, error) {
-	inputFile, err := WriteTemp(inputVideoData)
+	inputFile, err := utils.WriteTemp(inputVideoData)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"archive/zip"
@@ -7,8 +7,12 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-)
+	"sync"
 
+	"github.com/goki/freetype"
+	"github.com/goki/freetype/truetype"
+	"golang.org/x/image/font"
+)
 
 func GetFontWeightMapFromGoogle(fontName string, subsets string) (map[string][]byte, error) {
 	URL := fmt.Sprintf("https://gwfh.mranftl.com/api/fonts/%s?download=zip&formats=ttf&subsets=%s", fontName, subsets)
@@ -67,4 +71,47 @@ func GetFontWeightMapFromGoogle(fontName string, subsets string) (map[string][]b
 	}
 
 	return fontWeightMap, nil
+}
+
+func ReadFont(fontBytes []byte, size float64) font.Face {
+	f, _ := freetype.ParseFont(fontBytes)
+
+	face := truetype.NewFace(f, &truetype.Options{
+		Size: size,
+	})
+	return face
+}
+
+type FontPool struct {
+	sync.Pool
+	fontSize float64
+}
+
+func (p *FontPool) Get(key string) *font.Face {
+
+	fonts := p.Pool.Get().(map[string]font.Face)
+	defer p.Pool.Put(fonts)
+
+	font, ok := fonts[key]
+	if ok {
+		return &font
+	}
+
+	return nil
+}
+
+func NewPool(m map[string][]byte, fontSize float64) *FontPool {
+	return &FontPool{
+		fontSize: fontSize,
+		Pool: sync.Pool{
+			New: func() any {
+				items := map[string]font.Face{}
+				for k, v := range m {
+					face := ReadFont(v, fontSize)
+					items[k] = face
+				}
+				return items
+			},
+		},
+	}
 }

@@ -3,7 +3,7 @@ package interpolation
 import (
 	"math"
 
-	"github.com/elweday/go-subtitles/src/types"
+	"github.com/elweday/go-subtitles/pkg/types"
 )
 
 func Linear(start, end float64) types.Interpolator {

@@ -13,7 +13,7 @@ import (
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
-	"github.com/elweday/go-subtitles/src/types"
+	"github.com/elweday/go-subtitles/pkg/types"
 	"github.com/joho/godotenv"
 )
 

@@ -1,8 +1,8 @@
 package styles
 
 import (
-	"github.com/elweday/go-subtitles/src/interpolation"
-	"github.com/elweday/go-subtitles/src/types"
+	"github.com/elweday/go-subtitles/pkg/types"
+	"github.com/elweday/go-subtitles/pkg/utils/interpolation"
 )
 
 type ScrollingBox types.SubtitlesOptions

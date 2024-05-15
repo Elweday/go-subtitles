@@ -7,94 +7,24 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/elweday/go-subtitles/src/styles"
-	"github.com/elweday/go-subtitles/src/types"
+	"github.com/elweday/go-subtitles/pkg/styles"
+	"github.com/elweday/go-subtitles/pkg/types"
+	"github.com/elweday/go-subtitles/pkg/utils"
 
 	"github.com/fogleman/gg"
-	"github.com/goki/freetype"
-	"github.com/goki/freetype/truetype"
-	"github.com/google/uuid"
-	"golang.org/x/exp/constraints"
 	"golang.org/x/image/font"
 )
-
-type Number interface {
-	constraints.Integer | constraints.Float
-}
-
-type FontPool struct {
-	sync.Pool
-	fontSize float64
-}
-
-func (p *FontPool) Get(key string) *font.Face {
-
-	fonts := p.Pool.Get().(map[string]font.Face)
-	defer p.Pool.Put(fonts)
-
-	font, ok := fonts[key]
-	if ok {
-		return &font
-	}
-
-	return nil
-}
-
-func NewPool(m map[string][]byte, fontSize float64) *FontPool {
-	return &FontPool{
-		fontSize: fontSize,
-		Pool: sync.Pool{
-			New: func() any {
-				items := map[string]font.Face{}
-				for k, v := range m {
-					face := ReadFont(v, fontSize)
-					items[k] = face
-				}
-				return items
-			},
-		},
-	}
-}
-
-func WriteTemp(data []byte) (*os.File, error) {
-	f, err := os.CreateTemp("/tmp", uuid.New().String())
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	_, err = f.Write(data)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
-}
 
 const (
 	Width  = 720
 	Height = 1280
 )
 
-func Iff[T any](cond bool, a, b T) T {
-	if cond {
-		return a
-	}
-	return b
-}
-
-func ReadFont(fontBytes []byte, size float64) font.Face {
-	f, _ := freetype.ParseFont(fontBytes)
-
-	face := truetype.NewFace(f, &truetype.Options{
-		Size: size,
-	})
-	return face
-}
-
 func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOptions) ([][]types.Word, map[int]int) {
 
 	indexLineMap := map[int]int{}
 
-	fontFace := ReadFont(bFont, opts.FontSize)
+	fontFace := utils.ReadFont(bFont, opts.FontSize)
 	maxWidth := float64(Width)
 
 	currWidth := float64(opts.Padding)
@@ -137,8 +67,8 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 	dc.Clear()
 
 	// dir := Iff(opts.RTL, 1, -1)
-	reg := ReadFont(regFont, opts.FontSize)
-	bold := ReadFont(regFont, opts.FontSize)
+	reg := utils.ReadFont(regFont, opts.FontSize)
+	bold := utils.ReadFont(regFont, opts.FontSize)
 	defer reg.Close()
 	defer bold.Close()
 
@@ -148,9 +78,9 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 	currHeight := float64(opts.Padding)
 	sep := strings.Repeat(" ", opts.WordSpacing)
 	spaceWidth, _ := dc.MeasureString(sep)
-	startX := Iff(opts.RTL, Width-opts.Padding, opts.Padding)
+	startX := utils.Iff(opts.RTL, Width-opts.Padding, opts.Padding)
 	startY := opts.Padding
-	dir := Iff(opts.RTL, -1.0, 1.0)
+	dir := utils.Iff(opts.RTL, -1.0, 1.0)
 	lineHeight := opts.FontSize
 
 	dc.SetColor(opts.FontColor)
@@ -159,7 +89,7 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 		for _, word := range line {
 			c++
 			wordWidth, _ := dc.MeasureString(word.Value)
-			wordX := float64(startX) + float64(currWidth)*dir + Iff(opts.RTL, -wordWidth, 0)
+			wordX := float64(startX) + float64(currWidth)*dir + utils.Iff(opts.RTL, -wordWidth, 0)
 			wordY := float64(startY) + float64(currHeight)
 			x := wordX - opts.HighlightPadding + opts.TextOffsetX
 			y := wordY - lineHeight - opts.HighlightPadding + opts.TextOffsetY + (opts.FontSize * 0.23)
@@ -200,13 +130,6 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 	return buf.Bytes()
 }
 
-func min[T Number](a, b T) T {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func calcRelativeIndex(lines [][]types.Word, lineIndex, index int) int {
 	sum := 0
 	for _, line := range lines[:lineIndex] {
@@ -214,8 +137,6 @@ func calcRelativeIndex(lines [][]types.Word, lineIndex, index int) int {
 	}
 	return index - sum
 }
-
-// BytesToVideo generates a video from a slice of [][]byte representing images
 
 type VidoePayload struct {
 	InputVideo     []byte                 `json:"video"`
