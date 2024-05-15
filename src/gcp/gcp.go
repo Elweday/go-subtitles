@@ -1,4 +1,4 @@
-package main
+package gcp
 
 import (
 	"bytes"
@@ -8,12 +8,12 @@ import (
 	"log"
 	"os"
 
-	types "github.com/elweday/go-subtitles/utils"
 	"google.golang.org/api/option"
 
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
+	"github.com/elweday/go-subtitles/src/types"
 	"github.com/joho/godotenv"
 )
 
