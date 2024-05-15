@@ -31,6 +31,9 @@ type SubtitlesOptions struct {
 	RTL                   bool
 	MaxLines              int
 	CurrentLine           int
+	FPS                   int
+	Width                 int
+	Height                int
 }
 
 type Word struct {
@@ -39,6 +42,13 @@ type Word struct {
 	Value       string  `json:"word"`
 	Frames      int64   `json:"frames"`
 	StartFrames int64   `json:"startFrames"`
+}
+
+type VidoePayload struct {
+	InputVideo     []byte           `json:"video"`
+	Words          []Word           `json:"words"`
+	Opts           SubtitlesOptions `json:"opts"`
+	SubtitledVideo []byte           `json:"subtitledVideo"`
 }
 
 type Interpolator func(float64) float64

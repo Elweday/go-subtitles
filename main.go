@@ -35,10 +35,8 @@ type FontPool struct {
 	fontSize float64
 }
 
+func (p *FontPool) Get(key string) *font.Face {
 
-
-func (p *FontPool) Get(key string) *font.Face{
-	
 	fonts := p.Pool.Get().(map[string]font.Face)
 	defer p.Pool.Put(fonts)
 
@@ -50,14 +48,13 @@ func (p *FontPool) Get(key string) *font.Face{
 	return nil
 }
 
-
 func NewPool(m map[string][]byte, fontSize float64) *FontPool {
 	return &FontPool{
 		fontSize: fontSize,
 		Pool: sync.Pool{
 			New: func() any {
 				items := map[string]font.Face{}
-				for k,v := range m {
+				for k, v := range m {
 					face := ReadFont(v, fontSize)
 					items[k] = face
 				}
@@ -68,7 +65,9 @@ func NewPool(m map[string][]byte, fontSize float64) *FontPool {
 }
 
 func ReadAndConvertToFrames(jsonString []byte, frameRate int) ([]types.Word, error) {
-	var items []types.Word
+	var items = []types.Word{
+		{Time: 0, Value: "", Frames: 0},
+	}
 	reader := bytes.NewReader(jsonString)
 
 	decoder := json.NewDecoder(reader)
@@ -76,13 +75,11 @@ func ReadAndConvertToFrames(jsonString []byte, frameRate int) ([]types.Word, err
 	decoder.Decode(&items)
 
 	// Convert time to frames
+
 	for i := range items {
 		items[i].Frames = int64(math.Round(items[i].Time * float64(frameRate)))
+		items[i].Value = garabic.Shape(items[i].Value)
 	}
-
-	items = append([]types.Word{
-		{Time: 0, Value: "", Frames: 0},
-	}, items...)
 
 	return items, nil
 }
@@ -108,11 +105,9 @@ func ReadFont(fontBytes []byte, size float64) font.Face {
 	return face
 }
 
+func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOptions) ([][]types.Word, map[int]int) {
 
-func SplitIntoLines(words []types.Word,bFont []byte, opts types.SubtitlesOptions) ([][]types.Word, map[int]int) {
-
-	indexLineMap := map[int]int{};
-
+	indexLineMap := map[int]int{}
 
 	fontFace := ReadFont(bFont, opts.FontSize)
 	maxWidth := float64(Width)
@@ -124,32 +119,26 @@ func SplitIntoLines(words []types.Word,bFont []byte, opts types.SubtitlesOptions
 		Face: fontFace,
 	}
 	sep := strings.Repeat(" ", opts.WordSpacing)
-	spaceWidthAdvance := drawer.MeasureString(sep)
-	spaceWidth :=  float64(spaceWidthAdvance >> 6)
+	spaceWidth := float64(drawer.MeasureString(sep) >> 6)
 	lineIndex := 0
 
 	for i, word := range words {
 		indexLineMap[i] = lineIndex
-		current = append(current, word)
-		
+		wordWidth := float64(drawer.MeasureString(word.Value) >> 6)
 
-		gylphed := garabic.Shape(word.Value)
-		adv := drawer.MeasureString(gylphed)
-
-		wordWidth := float64(adv >> 6)
-		
-
-		if currWidth+wordWidth+spaceWidth + float64(opts.Padding) > maxWidth {
+		if currWidth+wordWidth+spaceWidth+float64(opts.Padding) > maxWidth-float64(opts.Padding) {
 			result = append(result, current)
 			current = []types.Word{}
 			lineIndex += 1
-			currWidth = 0
+			currWidth = float64(opts.Padding)
 		}
 
-		if Iff(opts.RTL, i > 0, i < len(words)-1) {
-			currWidth += wordWidth + spaceWidth
-		}
+		current = append(current, word)
+
+		currWidth += wordWidth + spaceWidth
+
 	}
+	result = append(result, current)
 
 	return result, indexLineMap
 }
@@ -172,7 +161,6 @@ func DrawFrame(text []types.Word, idx int, perc float64, opts types.SubtitlesOpt
 	reg := ReadFont(regFont, opts.FontSize)
 	bold := ReadFont(regFont, opts.FontSize)
 
-	
 	dc.SetFontFace(reg)
 
 	maxWidth := float64(Width - 2*opts.Padding)
@@ -198,8 +186,7 @@ func DrawFrame(text []types.Word, idx int, perc float64, opts types.SubtitlesOpt
 	dc.SetColor(opts.FontColor)
 	for i, word := range words {
 
-		gylphed := garabic.Shape(word.Value)
-		wordWidth, _ := dc.MeasureString(gylphed)
+		wordWidth, _ := dc.MeasureString(word.Value)
 		lineHeight := opts.FontSize
 
 		if currWidth+wordWidth > maxWidth {
@@ -234,12 +221,12 @@ func DrawFrame(text []types.Word, idx int, perc float64, opts types.SubtitlesOpt
 			dc.Fill()
 			dc.SetColor(opts.FontSelectedColor)
 			dc.Stroke()
-			dc.DrawString(gylphed, wordX+opts.TextOffsetX, wordY+opts.TextOffsetY)
+			dc.DrawString(word.Value, wordX+opts.TextOffsetX, wordY+opts.TextOffsetY)
 			dc.Pop()
 		} else {
 			dc.SetFontFace(reg)
 			dc.SetColor(opts.FontColor)
-			dc.DrawString(gylphed, wordX, wordY)
+			dc.DrawString(word.Value, wordX, wordY)
 		}
 		if Iff(opts.RTL, i > 0, i < len(text)-1) {
 			currWidth += wordWidth + spaceWidth
@@ -268,24 +255,26 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 	// dir := Iff(opts.RTL, 1, -1)
 	reg := ReadFont(regFont, opts.FontSize)
 	bold := ReadFont(regFont, opts.FontSize)
+	defer reg.Close()
+	defer bold.Close()
 
-	
 	dc.SetFontFace(reg)
 
 	currWidth := 0.0
 	currHeight := float64(opts.Padding)
 	sep := strings.Repeat(" ", opts.WordSpacing)
+	spaceWidth, _ := dc.MeasureString(sep)
 	startX := Iff(opts.RTL, Width-opts.Padding, opts.Padding)
 	startY := opts.Padding
 	dir := Iff(opts.RTL, -1.0, 1.0)
 	lineHeight := opts.FontSize
 
-
 	dc.SetColor(opts.FontColor)
+	c := 0
 	for _, line := range lines {
-		for i, word := range line {
-			gylphed := garabic.Shape(word.Value)
-			wordWidth, _ := dc.MeasureString(gylphed + sep)
+		for _, word := range line {
+			c++
+			wordWidth, _ := dc.MeasureString(word.Value)
 			wordX := float64(startX) + float64(currWidth)*dir + Iff(opts.RTL, -wordWidth, 0)
 			wordY := float64(startY) + float64(currHeight)
 			x := wordX - opts.HighlightPadding + opts.TextOffsetX
@@ -295,7 +284,7 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 			cx := x + w/2
 			cy := y + h/2
 
-			if i == idx {
+			if c == idx {
 				dc.SetFontFace(bold)
 				dc.Push()
 				dc.SetColor(opts.HighlightColor)
@@ -304,21 +293,19 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 				dc.Fill()
 				dc.SetColor(opts.FontSelectedColor)
 				dc.Stroke()
-				dc.DrawString(gylphed, wordX+opts.TextOffsetX, wordY+opts.TextOffsetY)
+				dc.DrawString(word.Value, wordX+opts.TextOffsetX, wordY+opts.TextOffsetY)
 				dc.Pop()
 			} else {
 				dc.SetFontFace(reg)
 				dc.SetColor(opts.FontColor)
-				dc.DrawString(gylphed, wordX, wordY)
+				dc.DrawString(word.Value, wordX, wordY)
 			}
 
-			currWidth += wordWidth
+			currWidth += wordWidth + spaceWidth
 		}
 		currWidth = 0
 		currHeight += lineHeight * opts.LineSpacing
-		
 
-		
 	}
 
 	var buf bytes.Buffer
@@ -326,12 +313,8 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 		panic(err)
 	}
 
-	reg.Close()
-	bold.Close()
 	return buf.Bytes()
 }
-
-
 
 func min[T Number](a, b T) T {
 	if a < b {
@@ -340,17 +323,116 @@ func min[T Number](a, b T) T {
 	return b
 }
 
-func Render(timeStamps string, rtl bool, fps int) {
-	fileData, _ := os.ReadFile(timeStamps)
-	words, err := ReadAndConvertToFrames(fileData, fps)
+func calcRelativeIndex(lines [][]types.Word, lineIndex, index int) int {
+	sum := 0
+	for _, line := range lines[:lineIndex] {
+		sum += len(line)
+	}
+	return index - sum
+}
+
+func Render(vid *types.VidoePayload) error {
+
+	// fontMap, err := GetFontWeightMapFromGoogle(opts.FontFamily, "arabic")
+
+	/* if err != nil {
+		fmt.Printf(err.Error(), "font not found")
+		return
+	}
+	*/
+
+	regFont, _ := os.ReadFile("./assets/fonts/Montserrat-Medium.ttf")
+	boldFont, _ := os.ReadFile("./assets/fonts/Montserrat-Bold.ttf")
+
+	lines, lineIndexMap := SplitIntoLines(vid.Words, regFont, vid.Opts)
+	fmt.Println(lineIndexMap)
+
+	// fmt.Println(lines)
+	os.Stdout = nil
+
+	var wg sync.WaitGroup
+
+	updater := styles.ScrollingBox{}
+
+	durationS := 0.2
+	duration := int64(durationS * float64(vid.Opts.FPS))
+
+	m := map[int][]byte{}
+	mu := sync.Mutex{}
+
+	frameCount := 0
+	for iWord := 1; iWord < len(vid.Words); iWord++ {
+		current := vid.Words[iWord]
+		prev := vid.Words[iWord-1]
+		frames := current.Frames - prev.Frames
+		if current.Value == "" {
+			continue
+		}
+		for j := int64(0); j < frames; j++ {
+
+			nframes := min(frames, duration)
+			perc := float64(j) / float64(nframes)
+			perc = min(perc, 1.0)
+
+			wg.Add(1)
+			go func(c int) {
+				defer wg.Done()
+
+				startLine := lineIndexMap[iWord] - (lineIndexMap[iWord] % vid.Opts.MaxLines)
+				endLine := startLine + vid.Opts.MaxLines
+				if endLine > len(lines) {
+					endLine = len(lines)
+				}
+				selectedlines := lines[startLine:endLine]
+				relativeIndex := calcRelativeIndex(lines, startLine, iWord)
+				b := DrawFrame2(selectedlines, relativeIndex, perc, vid.Opts, updater, regFont, boldFont)
+				mu.Lock()
+				m[c] = b
+				mu.Unlock()
+			}(frameCount)
+			frameCount++
+		}
+	}
+
+	wg.Wait()
+
+	arr := [][]byte{}
+
+	for i := range frameCount {
+		arr = append(arr, m[i])
+	}
+
+	fmt.Println("images created")
+
+	aspectRatio := fmt.Sprintf("%dx%d", Width, Height)
+
+	video, err := CombineImagesToVideo(arr, vid.InputVideo, aspectRatio, vid.Opts.FPS)
+
+	vid.SubtitledVideo = video
+
+	return err
+
+}
+
+func main() {
+	start := time.Now()
+	defer since(start)
+
+	backgroundVideo, err := os.ReadFile("inputVideo.mp4")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	w, h, err := GetVideoDimensions(backgroundVideo)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	opts := types.SubtitlesOptions{
 		FontFamily:            "nunito",
-		FontSize:              50,
+		FontSize:              40,
 		FontColor:             color.RGBA{R: 8, G: 205, B: 237, A: 255},
 		FontSelectedColor:     color.RGBA{R: 5, G: 253, B: 249, A: 255},
 		StrokeColor:           color.RGBA{R: 255, G: 0, B: 255, A: 255},
@@ -365,87 +447,38 @@ func Render(timeStamps string, rtl bool, fps int) {
 		TextOffsetX:           0,
 		TextOffsetY:           0,
 		HighlightScale:        1,
-		RTL:                   rtl,
-		MaxLines:              2,
+		RTL:                   false,
+		MaxLines:              3,
+		FPS:                   30,
+		Width:                 w,
+		Height:                h,
 	}
 
-	// fontMap, err := GetFontWeightMapFromGoogle(opts.FontFamily, "arabic")
-	
-	/* if err != nil {
-		fmt.Printf(err.Error(), "font not found")
-		return
-	}
- */
-	
+	fileData, _ := os.ReadFile("time_stamps_en.json")
+	words, err := ReadAndConvertToFrames(fileData, opts.FPS)
 
-
-	regFont, _ := os.ReadFile("./assets/fonts/Montserrat-Medium.ttf")
-	boldFont, _ := os.ReadFile("./assets/fonts/Montserrat-Bold.ttf")
-
-	// lines, lineIndexMap := SplitIntoLines(words, regFont, opts)
-
-	// fmt.Println(lines)
-	os.Stdout = nil
-
-	var wg sync.WaitGroup
-
-	updater := styles.ScrollingBox{}
-
-	durationS := 0.2
-	duration := int64(durationS * float64(fps))
-
-	m := map[int][]byte{}
-	mu := sync.Mutex{}
-
-
-
-	count := 0
-	for i := 1; i < len(words); i++ {
-		current := words[i]
-		prev := words[i-1]
-		frames := current.Frames - prev.Frames
-		for j := int64(0); j < frames; j++ {
-			nframes := min(frames, duration)
-			perc := float64(j) / float64(nframes)
-			perc = min(perc, 1.0)
-
-			wg.Add(1)
-			go func(c int) {
-				defer wg.Done()
-				b := DrawFrame(words, i, perc, opts, updater, regFont, boldFont)
-				mu.Lock()
-				m[c] = b
-				mu.Unlock()
-			}(count)
-			count++
-		}
+	if err != nil {
+		panic(err)
 	}
 
-	wg.Wait()
-
-	arr := [][]byte{}
-
-	for i := range count {
-		arr = append(arr, m[i])
+	vid := &types.VidoePayload{
+		InputVideo: backgroundVideo,
+		Words:      words,
+		Opts:       opts,
 	}
-
-	fmt.Println("images created")
-
-	aspectRatio := fmt.Sprintf("%dx%d", Width, Height)
-
-	// backgroundVideo, err := os.ReadFile("inputVideo.mp4")
-	err = CombineImagesToVideo(arr, aspectRatio, fps)
-
+	err = Render(vid)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	err = os.WriteFile("output.mkv", vid.SubtitledVideo, 0644)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 }
 
-func main() {
-	start := time.Now()
-	defer func() {
-		fmt.Printf("Video created successfully! %s", time.Since(start))
-	}()
-	Render("time_stamps_en.json", false, 30)
+func since(start time.Time) {
+	fmt.Printf("\nElapsed time: %s\n", time.Since(start))
 }

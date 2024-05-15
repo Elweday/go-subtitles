@@ -7,11 +7,30 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
+func WriteTemp(data []byte) (*os.File, error) {
+	f, err := os.CreateTemp("/tmp", uuid.New().String())
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	_, err = f.Write(data)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
 // BytesToVideo generates a video from a slice of [][]byte representing images
-func CombineImagesToVideo(images [][]byte, aspectRatio string, frameRate int) error {
-	// Run ffmpeg to create video from images
+func CombineImagesToVideo(frames [][]byte, inputVideoData []byte, aspectRatio string, frameRate int) ([]byte, error) {
+	inputFile, err := WriteTemp(inputVideoData)
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(inputFile.Name())
 
 	cmd := exec.Command("ffmpeg",
 		"-y",
@@ -19,45 +38,50 @@ func CombineImagesToVideo(images [][]byte, aspectRatio string, frameRate int) er
 		"-framerate", fmt.Sprintf("%d", frameRate),
 		"-video_size", aspectRatio,
 		"-i", "pipe:0",
-		"-i", "inputVideo.mp4",
+		"-f", "mp4",
+		"-i", inputFile.Name(),
 		"-filter_complex", "[1:v][0:v]overlay=0:0[out]", // Overlay images over background video
 		"-map", "[out]",
 		"-c:v", "libx264",
 		"-preset", "ultrafast",
 		"-pix_fmt", "yuv420p",
-		"output.mp4",
+		"-f", "matroska",
+		"-",
 	)
 
 	cmd.Stderr = os.Stderr
 	stdinImages, err := cmd.StdinPipe()
+	out := []byte{}
+	outBuf := bytes.NewBuffer(out)
+	cmd.Stdout = outBuf
 	if err != nil {
-		return fmt.Errorf("error getting stdin pipe for images: %v", err)
+		return nil, fmt.Errorf("error getting stdin pipe for images: %v", err)
 	}
 
 	// Start ffmpeg process
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("error starting ffmpeg: %v", err)
+		return nil, fmt.Errorf("error starting ffmpeg: %v", err)
 	}
 
 	// Write images to stdin
-	for _, imgData := range images {
+	for _, imgData := range frames {
 		_, err := stdinImages.Write(imgData)
 		if err != nil {
-			return fmt.Errorf("error writing image data to stdin: %v", err)
+			return nil, fmt.Errorf("error writing image data to stdin: %v", err)
 		}
 	}
 
 	// Close stdin for images to signal end of input
 	if err := stdinImages.Close(); err != nil {
-		return fmt.Errorf("error closing stdin for images: %v", err)
+		return nil, fmt.Errorf("error closing stdin for images: %v", err)
 	}
 
 	// Wait for ffmpeg to finish
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("error waiting for ffmpeg: %v", err)
+		return nil, fmt.Errorf("error waiting for ffmpeg: %v", err)
 	}
 
-	return nil
+	return outBuf.Bytes(), nil
 }
 
 func ExtractAudio(videoBytes []byte) ([]byte, error) {
