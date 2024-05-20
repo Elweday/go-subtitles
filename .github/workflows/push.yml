@@ -1,4 +1,4 @@
-name: Build and Push Go Binaries to Local repository
+name: Build and Push Go Binaries to Local repository.
 on: 
   push:
     branches:
