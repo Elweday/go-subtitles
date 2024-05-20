@@ -27,7 +27,12 @@ jobs:
     - name: Build project
       run: |
         mkdir -p bin
-        GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -o ./bin/${{ matrix.os }}_${{ matrix.arch }}
+        go build -o ./bin/${{ matrix.os }}_${{ matrix.arch }}
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+        CGO_ENABLED: 0
+
 
     - name: Configure git
       run: |
@@ -43,13 +48,14 @@ jobs:
 
     - name: Copy binaries to target repository
       run: |
-        cp -r ./bin ./target-repo/bin
+        cp -r ./bin/* ./target-repo/bin
 
     - name: Commit and push changes
       run: |
         cd target-repo
+        git pull
         git add .
-        git commit -m "Update binaries"
+        git commit -m "Update binaries for multiple OS"
         git push
       env:
         GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
