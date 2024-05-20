@@ -2,7 +2,7 @@ name: Build and Push Go Binaries to Local repository.
 on: 
   push:
     branches:
-      - main  # or any branch you want to trigger this action
+      - master
 
 jobs:
   build:
