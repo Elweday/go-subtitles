@@ -1,7 +1,14 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"math"
 	"os"
+
+	"github.com/abdullahdiaa/garabic"
+	"github.com/elweday/go-subtitles/pkg/types"
 
 	"github.com/google/uuid"
 	"golang.org/x/exp/constraints"
@@ -36,4 +43,26 @@ func WriteTemp(data []byte) (*os.File, error) {
 		return nil, err
 	}
 	return f, nil
+}
+
+func ReadAndConvertToFrames(jsonString []byte, frameRate int) ([]types.Word, error) {
+	var items = []types.Word{}
+	reader := bytes.NewReader(jsonString)
+
+	decoder := json.NewDecoder(reader)
+
+	if err := decoder.Decode(&items); err != nil {
+		return nil, errors.New("encoding to []Word failed: make sure the file has the appropriate format")
+	}
+
+	for i := range items {
+		items[i].Frames = int64(math.Round(items[i].Time * float64(frameRate)))
+		items[i].Value = garabic.Shape(items[i].Value)
+	}
+
+	items = append([]types.Word{
+		{Time: 0, Value: "", Frames: 0},
+	}, items...)
+
+	return items, nil
 }

@@ -1,12 +1,7 @@
 package types
 
-import (
-	"image/color"
-)
-
 type Updater interface {
 	Update(opts *SubtitlesOptions, perc float64)
-	Check(words []Word, index int, i int) bool
 }
 
 /*
@@ -15,11 +10,11 @@ csdfjsdlf jsfkjsdhf kljsdfh
 type SubtitlesOptions struct {
 	FontFamily            string
 	FontSize              float64
-	FontColor             color.RGBA
-	FontSelectedColor     color.RGBA
-	StrokeColor           color.RGBA
+	FontColor             string
+	FontSelectedColor     string
+	StrokeColor           string
 	StrokeWidth           float64
-	HighlightColor        color.RGBA
+	HighlightColor        string
 	HighlightBorderRadius int
 	HighlightPadding      float64
 	HighlightScale        float64
@@ -73,5 +68,3 @@ func NewSubtitlesStyle(
 	}
 
 }
-
-

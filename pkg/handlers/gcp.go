@@ -1,4 +1,4 @@
-package gcp
+package handlers
 
 import (
 	"bytes"
@@ -13,36 +13,9 @@ import (
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
+	"github.com/elweday/go-subtitles/pkg/renderer"
 	"github.com/elweday/go-subtitles/pkg/types"
-	"github.com/joho/godotenv"
 )
-
-func Upload(bucketName string, objectName string, b []byte) {
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		log.Fatalf("Failed to create client: %v", err)
-	}
-	defer client.Close()
-
-	reader := bytes.NewReader(b)
-	// Get Google Cloud Storage bucket
-	bucket := client.Bucket(bucketName)
-
-	// Create new object
-	obj := bucket.Object(objectName)
-
-	// Write content of local file to GCS object
-	wc := obj.NewWriter(ctx)
-	if _, err := io.Copy(wc, reader); err != nil {
-		log.Fatalf("Failed to write to object: %v", err)
-	}
-	if err := wc.Close(); err != nil {
-		log.Fatalf("Failed to close writer: %v", err)
-	}
-
-	log.Printf("File %s uploaded to gs://%s/%s\n", bucketName, objectName, objectName)
-}
 
 func TranscibeFromStorage(client *speech.Client, gcsURI string) ([]types.Word, error) {
 	ctx := context.Background()
@@ -86,12 +59,60 @@ func TranscibeFromStorage(client *speech.Client, gcsURI string) ([]types.Word, e
 	return words, nil
 }
 
-func TestEndPoint() {
+type GcpIOHandler struct {
+	BucketName   string
+	InputObject  string
+	OutputObject string
+	CREDS        []byte
+}
 
-	godotenv.Load(".env")
+func NewGcpHandler() *GcpIOHandler {
+	return &GcpIOHandler{
+		BucketName:   os.Getenv("SUBTITLES_GCP_BUCKET"),
+		InputObject:  os.Getenv("SUBTITLES_GCP_INPUT_OBJECT"),
+		OutputObject: os.Getenv("SUBTITLES_GCP_OUTPUT_OBJECT"),
+		CREDS:        []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")),
+	}
+
+}
+
+func (handler *GcpIOHandler) SaveVideo(b []byte) error {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	reader := bytes.NewReader(b)
+	// Get Google Cloud Storage bucket
+	bucket := client.Bucket(handler.BucketName)
+
+	// Create new object
+	obj := bucket.Object(handler.OutputObject)
+
+	// Write content of local file to GCS object
+	wc := obj.NewWriter(ctx)
+	if _, err := io.Copy(wc, reader); err != nil {
+		return fmt.Errorf("failed to write to object: %v", err)
+	}
+	if err := wc.Close(); err != nil {
+		return fmt.Errorf("failed to close writer: %v", err)
+	}
+
+	log.Printf("File %s uploaded to gs://%s/%s\n", handler.BucketName, handler.BucketName, handler.OutputObject)
+	return nil
+}
+
+func (handler *GcpIOHandler) Read() (vid *renderer.VidoePayload, err error) {
+
+	return &renderer.VidoePayload{}, nil
+}
+
+func Test() {
+
 	b := []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
 	creds := option.WithCredentialsJSON(b)
-
 	client, _ := speech.NewClient(context.Background(), creds)
 
 	words, _ := TranscibeFromStorage(client, "gs://subtitles-demos/1.mp3")

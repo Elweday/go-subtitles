@@ -12,6 +12,3 @@ var f = interpolation.Spring(0.9, 1, types.SpringOptions{Stiffness: 3, Damping: 
 func (ScrollingBox) Update(opts *types.SubtitlesOptions, perc float64) {
 	opts.HighlightScale = f(perc)
 }
-func (ScrollingBox) Check(words []types.Word, index int, i int) bool {
-	return true
-}

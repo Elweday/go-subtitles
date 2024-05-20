@@ -15,17 +15,12 @@ import (
 	"golang.org/x/image/font"
 )
 
-const (
-	Width  = 720
-	Height = 1280
-)
-
 func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOptions) ([][]types.Word, map[int]int) {
 
 	indexLineMap := map[int]int{}
 
 	fontFace := utils.ReadFont(bFont, opts.FontSize)
-	maxWidth := float64(Width)
+	maxWidth := float64(opts.Width)
 
 	currWidth := float64(opts.Padding)
 	current := []types.Word{}
@@ -61,7 +56,7 @@ func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOption
 func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.SubtitlesOptions, u types.Updater, regFont, boldFont []byte) []byte {
 	u.Update(&opts, perc)
 
-	dc := gg.NewContext(Width, Height)
+	dc := gg.NewContext(opts.Width, opts.Height)
 
 	dc.SetRGBA(0, 0, 0, 255)
 	dc.Clear()
@@ -78,12 +73,12 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 	currHeight := float64(opts.Padding)
 	sep := strings.Repeat(" ", opts.WordSpacing)
 	spaceWidth, _ := dc.MeasureString(sep)
-	startX := utils.Iff(opts.RTL, Width-opts.Padding, opts.Padding)
+	startX := utils.Iff(opts.RTL, opts.Width-opts.Padding, opts.Padding)
 	startY := opts.Padding
 	dir := utils.Iff(opts.RTL, -1.0, 1.0)
 	lineHeight := opts.FontSize
 
-	dc.SetColor(opts.FontColor)
+	dc.SetHexColor(opts.FontColor)
 	c := 0
 	for _, line := range lines {
 		for _, word := range line {
@@ -101,17 +96,17 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 			if c == idx {
 				dc.SetFontFace(bold)
 				dc.Push()
-				dc.SetColor(opts.HighlightColor)
+				dc.SetHexColor(opts.HighlightColor)
 				dc.ScaleAbout(opts.HighlightScale, opts.HighlightScale, cx, cy)
 				dc.DrawRoundedRectangle(x, y, w, h, float64(opts.HighlightBorderRadius))
 				dc.Fill()
-				dc.SetColor(opts.FontSelectedColor)
+				dc.SetHexColor(opts.FontSelectedColor)
 				dc.Stroke()
 				dc.DrawString(word.Value, wordX+opts.TextOffsetX, wordY+opts.TextOffsetY)
 				dc.Pop()
 			} else {
 				dc.SetFontFace(reg)
-				dc.SetColor(opts.FontColor)
+				dc.SetHexColor(opts.FontColor)
 				dc.DrawString(word.Value, wordX, wordY)
 			}
 
@@ -145,7 +140,7 @@ type VidoePayload struct {
 	SubtitledVideo []byte                 `json:"subtitledVideo"`
 }
 
-func (vid *VidoePayload) Render() error {
+func (vid *VidoePayload) RenderWithSubtitles() error {
 
 	// fontMap, err := GetFontWeightMapFromGoogle(opts.FontFamily, "arabic")
 
@@ -218,7 +213,7 @@ func (vid *VidoePayload) Render() error {
 
 	fmt.Println("images created")
 
-	aspectRatio := fmt.Sprintf("%dx%d", Width, Height)
+	aspectRatio := fmt.Sprintf("%dx%d", vid.Opts.Width, vid.Opts.Height)
 
 	video, err := FFmpegCombineImagesToVideo(arr, vid.InputVideo, aspectRatio, vid.Opts.FPS)
 
