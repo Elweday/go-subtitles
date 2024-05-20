@@ -9,12 +9,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        os: [windows, linux, darwin]
-        arch: [amd64, arm64]
-
-
     steps:
     - name: Checkout source code
       uses: actions/checkout@v2
