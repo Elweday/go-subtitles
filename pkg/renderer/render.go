@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -15,9 +16,10 @@ import (
 	"golang.org/x/image/font"
 )
 
-func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOptions) ([][]types.Word, map[int]int) {
+func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOptions) ([][]types.Word, map[int]int, map[int]float64) {
 
 	indexLineMap := map[int]int{}
+	lineWidthMap := map[int]float64{}
 
 	fontFace := utils.ReadFont(bFont, opts.FontSize)
 	maxWidth := float64(opts.Width)
@@ -39,6 +41,7 @@ func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOption
 		if currWidth+wordWidth+spaceWidth+float64(opts.Padding) > maxWidth-float64(opts.Padding) {
 			result = append(result, current)
 			current = []types.Word{}
+			lineWidthMap[lineIndex] = currWidth
 			lineIndex += 1
 			currWidth = float64(opts.Padding)
 		}
@@ -50,26 +53,22 @@ func SplitIntoLines(words []types.Word, bFont []byte, opts types.SubtitlesOption
 	}
 	result = append(result, current)
 
-	return result, indexLineMap
+	return result, indexLineMap, lineWidthMap
 }
 
-func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.SubtitlesOptions, u types.Updater, regFont, boldFont []byte) []byte {
+func DrawFrame2(lines [][]types.Word, widths []float64, idx int, perc float64, opts types.SubtitlesOptions, u types.Updater, regFont, boldFont font.Face) []byte {
 	u.Update(&opts, perc)
 
-	dc := gg.NewContext(opts.Width, opts.Height)
+	height := float64(opts.FontSize)*float64(opts.MaxLines)*opts.LineSpacing + 2*float64(opts.Padding)
+	dc := gg.NewContext(opts.Width, int(height))
 
-	dc.SetRGBA(0, 0, 0, 255)
 	dc.Clear()
 
 	// dir := Iff(opts.RTL, 1, -1)
-	reg := utils.ReadFont(regFont, opts.FontSize)
-	bold := utils.ReadFont(regFont, opts.FontSize)
-	defer reg.Close()
-	defer bold.Close()
 
-	dc.SetFontFace(reg)
+	dc.SetFontFace(regFont)
 
-	currWidth := 0.0
+	currWidth := utils.Iff(opts.Center, (float64(opts.Width)-widths[0])/2, 0)
 	currHeight := float64(opts.Padding)
 	sep := strings.Repeat(" ", opts.WordSpacing)
 	spaceWidth, _ := dc.MeasureString(sep)
@@ -80,7 +79,12 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 
 	dc.SetHexColor(opts.FontColor)
 	c := 0
-	for _, line := range lines {
+	for i, line := range lines {
+		lineStart := 0.0
+		lineWidth := widths[i]
+		if opts.Center {
+			lineStart = (float64(opts.Width) - lineWidth) / 2
+		}
 		for _, word := range line {
 			c++
 			wordWidth, _ := dc.MeasureString(word.Value)
@@ -94,7 +98,7 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 			cy := y + h/2
 
 			if c == idx {
-				dc.SetFontFace(bold)
+				dc.SetFontFace(boldFont)
 				dc.Push()
 				dc.SetHexColor(opts.HighlightColor)
 				dc.ScaleAbout(opts.HighlightScale, opts.HighlightScale, cx, cy)
@@ -105,14 +109,14 @@ func DrawFrame2(lines [][]types.Word, idx int, perc float64, opts types.Subtitle
 				dc.DrawString(word.Value, wordX+opts.TextOffsetX, wordY+opts.TextOffsetY)
 				dc.Pop()
 			} else {
-				dc.SetFontFace(reg)
+				dc.SetFontFace(regFont)
 				dc.SetHexColor(opts.FontColor)
 				dc.DrawString(word.Value, wordX, wordY)
 			}
 
 			currWidth += wordWidth + spaceWidth
 		}
-		currWidth = 0
+		currWidth = lineStart
 		currHeight += lineHeight * opts.LineSpacing
 
 	}
@@ -142,6 +146,14 @@ type VidoePayload struct {
 	OutputVideo    []byte
 }
 
+func getLineWidths(m map[int]float64, start int, end int) []float64 {
+	widths := []float64{}
+	for i := start; i < end; i++ {
+		widths = append(widths, m[i])
+	}
+	return widths
+}
+
 func (vid *VidoePayload) RenderWithSubtitles() error {
 
 	// fontMap, err := GetFontWeightMapFromGoogle(opts.FontFamily, "arabic")
@@ -152,14 +164,14 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 	}
 	*/
 
-	regFont, _ := os.ReadFile("./assets/fonts/Montserrat-Medium.ttf")
-	boldFont, _ := os.ReadFile("./assets/fonts/Montserrat-Bold.ttf")
+	regFont, err1 := os.ReadFile(filepath.Join("assets", "fonts", "Montserrat-Medium.ttf"))
+	boldFont, err2 := os.ReadFile(filepath.Join("assets", "fonts", "Montserrat-Bold.ttf"))
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("failed to read fonts: %v, %v", err1, err2)
+	}
 
-	lines, lineIndexMap := SplitIntoLines(vid.Words, regFont, vid.Opts)
-	fmt.Println(lineIndexMap)
-
+	lines, lineIndexMap, lineWidthMap := SplitIntoLines(vid.Words, regFont, vid.Opts)
 	// fmt.Println(lines)
-	os.Stdout = nil
 
 	var wg sync.WaitGroup
 
@@ -176,9 +188,6 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 		current := vid.Words[iWord]
 		prev := vid.Words[iWord-1]
 		frames := current.Frames - prev.Frames
-		if current.Value == "" {
-			continue
-		}
 		for j := int64(0); j < frames; j++ {
 
 			nframes := min(frames, duration)
@@ -186,21 +195,26 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 			perc = min(perc, 1.0)
 
 			wg.Add(1)
-			go func(c int) {
-				defer wg.Done()
 
-				startLine := lineIndexMap[iWord] - (lineIndexMap[iWord] % vid.Opts.MaxLines)
+			go func(c int, idx int) {
+				defer wg.Done()
+				startLine := lineIndexMap[idx] - (lineIndexMap[idx] % vid.Opts.MaxLines)
 				endLine := startLine + vid.Opts.MaxLines
 				if endLine > len(lines) {
 					endLine = len(lines)
 				}
+				widths := getLineWidths(lineWidthMap, startLine, endLine)
 				selectedlines := lines[startLine:endLine]
-				relativeIndex := calcRelativeIndex(lines, startLine, iWord)
-				b := DrawFrame2(selectedlines, relativeIndex, perc, vid.Opts, updater, regFont, boldFont)
+				relativeIndex := calcRelativeIndex(lines, startLine, idx)
+				reg := utils.ReadFont(regFont, vid.Opts.FontSize)
+				bold := utils.ReadFont(boldFont, vid.Opts.FontSize)
+
+				b := DrawFrame2(selectedlines, widths, relativeIndex, perc, vid.Opts, updater, reg, bold)
 				mu.Lock()
 				m[c] = b
 				mu.Unlock()
-			}(frameCount)
+
+			}(frameCount, iWord)
 			frameCount++
 		}
 	}
@@ -209,15 +223,26 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 
 	arr := [][]byte{}
 
-	for i := range frameCount {
+	for i := 0; i < frameCount; i++ {
 		arr = append(arr, m[i])
 	}
 
 	fmt.Println("images created")
 
 	aspectRatio := fmt.Sprintf("%dx%d", vid.Opts.Width, vid.Opts.Height)
+	offset := 0.0
+	videoHeight := float64(vid.Opts.FontSize)*float64(vid.Opts.MaxLines)*vid.Opts.LineSpacing + 2*float64(vid.Opts.Padding)
 
-	video, err := FFmpegCombineImagesToVideo(arr, vid.InputVideo, aspectRatio, vid.Opts.FPS)
+	switch vid.Opts.Alignment {
+	case "top":
+		offset = 0
+	case "bottom":
+		offset = float64(vid.Opts.Height) - videoHeight
+	case "center":
+		offset = float64(vid.Opts.Height)/2 - videoHeight/2
+	}
+
+	video, err := FFmpegCombineImagesToVideo(arr, vid.InputVideo, aspectRatio, vid.Opts.FPS, offset)
 
 	vid.OutputVideo = video
 

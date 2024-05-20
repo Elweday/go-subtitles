@@ -23,13 +23,12 @@ func (handler *LocalIOHandler) Read() (vid *renderer.VidoePayload, err error) {
 	}
 
 	w, h, err := renderer.FFmpegGetVideoDimensions(inputVideo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get video dimensions: %v", err)
+	}
 	opts := DefaultOptions
 	opts.Width = w
 	opts.Height = h
-
-	if err != nil {
-		return nil, fmt.Errorf("file %s does not exist, make sure you set SUBTITLES_INPUT_VIDEO_PATH environment variable to a video", handler.TranscriptPath)
-	}
 
 	transcriptBytes, err := os.ReadFile(handler.TranscriptPath)
 	if err != nil {

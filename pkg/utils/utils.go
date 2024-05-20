@@ -33,7 +33,7 @@ type Number interface {
 }
 
 func WriteTemp(data []byte) (*os.File, error) {
-	f, err := os.CreateTemp("/tmp", uuid.New().String())
+	f, err := os.CreateTemp("", uuid.New().String())
 	if err != nil {
 		return nil, err
 	}
@@ -60,9 +60,7 @@ func ReadAndConvertToFrames(jsonString []byte, frameRate int) ([]types.Word, err
 		items[i].Value = garabic.Shape(items[i].Value)
 	}
 
-	items = append([]types.Word{
-		{Time: 0, Value: "", Frames: 0},
-	}, items...)
+	items = append([]types.Word{}, items...)
 
 	return items, nil
 }

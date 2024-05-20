@@ -8,26 +8,26 @@ type Updater interface {
 csdfjsdlf jsfkjsdhf kljsdfh
 */
 type SubtitlesOptions struct {
-	FontFamily            string
-	FontSize              float64
-	FontColor             string
-	FontSelectedColor     string
-	StrokeColor           string
-	StrokeWidth           float64
-	HighlightColor        string
-	HighlightBorderRadius int
-	HighlightPadding      float64
+	FontFamily            string  `firestore:"fontFamily"`
+	FontSize              float64 `firestore:"fontSize"`
+	FontColor             string  `firestore:"fontColor"`
+	FontSelectedColor     string  `firestore:"fontSelectedColor"`
+	StrokeColor           string  `firestore:"strokeColor"`
+	StrokeWidth           float64 `firestore:"strokeWidth"`
+	HighlightColor        string  `firestore:"highlightColor"`
+	HighlightBorderRadius int     `firestore:"highlightBorderRadius"`
+	HighlightPadding      float64 `firestore:"highlightPadding"`
+	Padding               int     `firestore:"padding"`
+	WordSpacing           int     `firestore:"wordSpacing"`
+	LineSpacing           float64 `firestore:"lineSpacing"`
+	RTL                   bool    `firestore:"rtl"`
+	MaxLines              int     `firestore:"maxLines"`
+	Center                bool    `firestore:"center"`
+	Alignment             string  `firestore:"alignment"`
 	HighlightScale        float64
-	Padding               int
-	LineWidth             int
-	WordSpacing           int
-	LineSpacing           float64
 	TextOffsetX           float64
 	TextOffsetY           float64
 	TextOpacity           float64
-	RTL                   bool
-	MaxLines              int
-	CurrentLine           int
 	FPS                   int
 	Width                 int
 	Height                int

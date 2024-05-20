@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/elweday/go-subtitles/pkg/handlers"
 
@@ -33,7 +34,11 @@ func renderSubtitles(handler handlers.IOHandler) error {
 }
 
 func main() {
-	godotenv.Load()
+	godotenv.Overload()
+	started := time.Now()
+	defer func() {
+		fmt.Println("took ", time.Since(started))
+	}()
 
 	runEnv := os.Getenv("SUBTITLES_RUN_ENVIRONMENT")
 	if runEnv == "LOCAL" {

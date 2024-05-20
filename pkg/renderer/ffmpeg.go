@@ -11,7 +11,7 @@ import (
 	"github.com/elweday/go-subtitles/pkg/utils"
 )
 
-func FFmpegCombineImagesToVideo(frames [][]byte, inputVideoData []byte, aspectRatio string, frameRate int) ([]byte, error) {
+func FFmpegCombineImagesToVideo(frames [][]byte, inputVideoData []byte, aspectRatio string, frameRate int, offset float64) ([]byte, error) {
 	inputFile, err := utils.WriteTemp(inputVideoData)
 	if err != nil {
 		return nil, err
@@ -26,8 +26,10 @@ func FFmpegCombineImagesToVideo(frames [][]byte, inputVideoData []byte, aspectRa
 		"-i", "pipe:0",
 		"-f", "mp4",
 		"-i", inputFile.Name(),
-		"-filter_complex", "[1:v][0:v]overlay=0:0[out]", // Overlay images over background video
+		"-filter_complex", fmt.Sprintf("[1:v][0:v]overlay=0:%f[out]", offset), // Overlay images over background video
 		"-map", "[out]",
+		"-map", "1:a", // Map the audio stream from the input video
+		"-c:a", "copy", // Copy the audio stream without re-encoding
 		"-c:v", "libx264",
 		"-preset", "ultrafast",
 		"-pix_fmt", "yuv420p",
@@ -35,7 +37,6 @@ func FFmpegCombineImagesToVideo(frames [][]byte, inputVideoData []byte, aspectRa
 		"-",
 	)
 
-	cmd.Stderr = os.Stderr
 	stdinImages, err := cmd.StdinPipe()
 	out := []byte{}
 	outBuf := bytes.NewBuffer(out)
@@ -100,7 +101,8 @@ func FFmpegGetVideoDimensions(videoData []byte) (int, int, error) {
 		"-select_streams", "v:0",
 		"-show_entries", "stream=width,height",
 		"-of", "csv=s=x:p=0",
-		"-")
+		"-",
+	)
 
 	cmd.Stdin = bytes.NewReader(videoData)
 
