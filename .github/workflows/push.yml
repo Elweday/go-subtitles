@@ -26,11 +26,29 @@ jobs:
 
     - name: Build project
       run: |
+
+        # List of operating systems and architectures
+        OS_LIST=("windows" "linux" "darwin")
+        ARCH_LIST=("amd64" "arm64")
         mkdir -p bin
-        go build -o ./bin/${{ matrix.os }}_${{ matrix.arch }}
+
+        for OS in "${OS_LIST[@]}"; do
+          for ARCH in "${ARCH_LIST[@]}"; do
+            # Set output file name
+            OUTPUT="./bin/$OS-$ARCH"
+            env GOOS=$OS GOARCH=$ARCH; go build -o $OUTPUT
+
+            if [ $? -ne 0 ]; then
+              echo "Failed to build for $OS/$ARCH"
+              exit 1
+            else
+              echo "Successfully built $OUTPUT"
+            fi
+          done
+        done
+
+        echo "All builds completed."
       env:
-        GOOS: ${{ matrix.os }}
-        GOARCH: ${{ matrix.arch }}
         CGO_ENABLED: 0
 
 
@@ -59,3 +77,7 @@ jobs:
         git push
       env:
         GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
+      
+
+
+
