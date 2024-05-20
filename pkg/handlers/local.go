@@ -38,7 +38,6 @@ func (handler *LocalIOHandler) Read() (vid *renderer.VidoePayload, err error) {
 
 	words, err := utils.ReadAndConvertToFrames(transcriptBytes, opts.FPS)
 	if err != nil {
-		fmt.Println(err.Error())
 		return nil, fmt.Errorf("file %s does not follow the correct format", handler.TranscriptPath)
 	}
 

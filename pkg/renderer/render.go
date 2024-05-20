@@ -134,10 +134,12 @@ func calcRelativeIndex(lines [][]types.Word, lineIndex, index int) int {
 }
 
 type VidoePayload struct {
-	InputVideo     []byte                 `json:"video"`
-	Words          []types.Word           `json:"words"`
-	Opts           types.SubtitlesOptions `json:"opts"`
-	SubtitledVideo []byte                 `json:"subtitledVideo"`
+	InputVideoObj  string                 `firestore:"inputVideo"`
+	OutputVideoObj string                 `firestore:"outputVideo"`
+	Words          []types.Word           `firestore:"words"`
+	Opts           types.SubtitlesOptions `firestore:"opts"`
+	InputVideo     []byte
+	OutputVideo    []byte
 }
 
 func (vid *VidoePayload) RenderWithSubtitles() error {
@@ -217,7 +219,7 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 
 	video, err := FFmpegCombineImagesToVideo(arr, vid.InputVideo, aspectRatio, vid.Opts.FPS)
 
-	vid.SubtitledVideo = video
+	vid.OutputVideo = video
 
 	return err
 

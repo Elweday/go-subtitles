@@ -9,7 +9,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-
 func main() {
 	start := time.Now()
 	defer since(start)
@@ -23,7 +22,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	err = handler.SaveVideo(vid.SubtitledVideo)
+	err = handler.SaveVideo(vid.OutputVideo)
 	if err != nil {
 		fmt.Println(err)
 		return

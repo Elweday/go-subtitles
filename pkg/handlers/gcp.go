@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/api/option"
 
+	"cloud.google.com/go/firestore"
 	speech "cloud.google.com/go/speech/apiv1"
 	"cloud.google.com/go/speech/apiv1/speechpb"
 	"cloud.google.com/go/storage"
@@ -63,22 +64,27 @@ type GcpIOHandler struct {
 	BucketName   string
 	InputObject  string
 	OutputObject string
+	Doc          string
+	ProjectID    string
 	CREDS        []byte
 }
 
 func NewGcpHandler() *GcpIOHandler {
 	return &GcpIOHandler{
-		BucketName:   os.Getenv("SUBTITLES_GCP_BUCKET"),
-		InputObject:  os.Getenv("SUBTITLES_GCP_INPUT_OBJECT"),
-		OutputObject: os.Getenv("SUBTITLES_GCP_OUTPUT_OBJECT"),
-		CREDS:        []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")),
+		BucketName: os.Getenv("SUBTITLES_GCP_BUCKET"),
+		Doc:        os.Getenv("SUBTITLES_GCP_DOC"),
+		ProjectID:  os.Getenv("SUBTITLES_GCP_PROJECT_ID"),
+		CREDS:      []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")),
 	}
+}
 
+func (handler *GcpIOHandler) Auth() option.ClientOption {
+	return option.WithCredentialsJSON(handler.CREDS)
 }
 
 func (handler *GcpIOHandler) SaveVideo(b []byte) error {
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
+	client, err := storage.NewClient(ctx, handler.Auth())
 	if err != nil {
 		return fmt.Errorf("failed to create client: %v", err)
 	}
@@ -100,18 +106,78 @@ func (handler *GcpIOHandler) SaveVideo(b []byte) error {
 		return fmt.Errorf("failed to close writer: %v", err)
 	}
 
-	log.Printf("File %s uploaded to gs://%s/%s\n", handler.BucketName, handler.BucketName, handler.OutputObject)
+	log.Printf("File uploaded to gs://%s/%s\n", handler.BucketName, handler.OutputObject)
 	return nil
 }
 
-func (handler *GcpIOHandler) Read() (vid *renderer.VidoePayload, err error) {
+func (handler *GcpIOHandler) ReadInput() ([]byte, error) {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, handler.Auth())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %v", err)
+	}
+	defer client.Close()
 
-	return &renderer.VidoePayload{}, nil
+	objBytes := []byte{}
+	inReader := bytes.NewBuffer(objBytes)
+	// Get Google Cloud Storage bucket
+	bucket := client.Bucket(handler.BucketName)
+
+	obj := bucket.Object(handler.InputObject)
+	storageReader, err := obj.NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create newReader: %v", err)
+	}
+
+	if _, err := io.Copy(inReader, storageReader); err != nil {
+		return nil, fmt.Errorf("failed to write to object: %v", err)
+	}
+	if err := storageReader.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close writer: %v", err)
+	}
+
+	log.Printf("File read from gs://%s/%s\n", handler.BucketName, handler.InputObject)
+	return inReader.Bytes(), nil
+}
+
+func (handler *GcpIOHandler) Read() (vid *renderer.VidoePayload, err error) {
+	ctx := context.Background()
+	client, err := firestore.NewClient(ctx, handler.ProjectID, handler.Auth())
+	if err != nil {
+		return vid, fmt.Errorf("failed to create client: %v", err)
+	}
+	defer client.Close()
+
+	doc := client.Doc(handler.Doc)
+
+	docsnap, err := doc.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get document: %v", err)
+	}
+
+	if err := docsnap.DataTo(vid); err != nil {
+		return nil, fmt.Errorf("failed to decode document: %v", err)
+	}
+	log.Printf("Document read from firestore: %s\n", handler.Doc)
+
+	handler.InputObject = vid.InputVideoObj
+	handler.OutputObject = vid.OutputVideoObj
+	videoBytes, err := handler.ReadInput()
+	vid.InputVideo = videoBytes
+	if err != nil {
+		return nil, fmt.Errorf("failed to read video: %v", err)
+	}
+	w, h, err := renderer.FFmpegGetVideoDimensions(videoBytes)
+	vid.Opts.Width = w
+	vid.Opts.Height = h
+
+	return vid, nil
 }
 
 func Test() {
 
 	b := []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"))
+	// TODO: Change authenrication method
 	creds := option.WithCredentialsJSON(b)
 	client, _ := speech.NewClient(context.Background(), creds)
 
