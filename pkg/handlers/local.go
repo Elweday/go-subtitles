@@ -54,13 +54,3 @@ func (handler *LocalIOHandler) Read() (vid *renderer.VidoePayload, err error) {
 func (handler *LocalIOHandler) SaveVideo(b []byte) error {
 	return os.WriteFile(handler.OutputPath, b, 0644)
 }
-
-func NewLocalHandler() *LocalIOHandler {
-	return &LocalIOHandler{
-		TranscriptPath: os.Getenv("SUBTITLES_TRANSCRIPT_PATH"),
-		ConfigPath:     os.Getenv("SUBTITLES_CONFIG_PATH"),
-		InputVideoPath: os.Getenv("SUBTITLES_INPUT_VIDEO_PATH"),
-		OutputPath:     os.Getenv("SUBTITLES_OUTPUT_VIDEO_PATH"),
-	}
-
-}

@@ -61,21 +61,12 @@ func TranscibeFromStorage(client *speech.Client, gcsURI string) ([]types.Word, e
 }
 
 type GcpIOHandler struct {
-	BucketName   string
+	BucketName   string `json:"bucketName"`
+	Doc          string `json:"doc"`
+	ProjectID    string `json:"projectID"`
+	CREDS        []byte `json:"creds"`
 	InputObject  string
 	OutputObject string
-	Doc          string
-	ProjectID    string
-	CREDS        []byte
-}
-
-func NewGcpHandler() *GcpIOHandler {
-	return &GcpIOHandler{
-		BucketName: os.Getenv("SUBTITLES_GCP_BUCKET"),
-		Doc:        os.Getenv("SUBTITLES_GCP_DOC"),
-		ProjectID:  os.Getenv("SUBTITLES_GCP_PROJECT_ID"),
-		CREDS:      []byte(os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")),
-	}
 }
 
 func (handler *GcpIOHandler) Auth() option.ClientOption {

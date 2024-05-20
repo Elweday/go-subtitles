@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"os"
-
 	"github.com/elweday/go-subtitles/pkg/renderer"
 	"github.com/elweday/go-subtitles/pkg/types"
 )
@@ -10,17 +8,6 @@ import (
 type IOHandler interface {
 	Read() (vid *renderer.VidoePayload, err error)
 	SaveVideo(b []byte) error
-}
-
-func GetIOHnadler() IOHandler {
-	runEnv := os.Getenv("SUBTITLES_RUN_ENVIRONMENT")
-	if runEnv == "LOCAL" {
-		return NewLocalHandler()
-
-	} else if runEnv == "GCP" {
-		return NewGcpHandler()
-	}
-	return nil
 }
 
 var DefaultOptions = types.SubtitlesOptions{
