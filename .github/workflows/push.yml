@@ -10,9 +10,9 @@ jobs:
     name: Push to GCP
     runs-on: ubuntu-latest
     env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || 'manim-videos' }}
-      FUNCTION_NAME: ${{ secrets.FUNCTION_NAME || 'RenderSubtitles' }}
-      REGION: ${{ secrets.REGION || 'europe-west2'}}
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      FUNCTION_NAME: ${{ secrets.FUNCTION_NAME }}
+      REGION: ${{ secrets.REGION }}
 
     steps:
       - name: Checkout
@@ -27,22 +27,11 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - name: "Use to deploy a cloud function gen 2"
+      - name: "Deploy Function"
         id: "deploy2"
-        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --gen2 --runtime=go122 --region=${{ env.REGION }} --source=. --trigger-http --allow-unauthenticated --entry-point=entry"
+        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --gen2 --runtime=go122 --region=${{ env.REGION }} --source=. --trigger-http --allow-unauthenticated --entry-point=RenderSubtitles"
 
       - name: Get url
         id: getUrl
         run: echo "url=$(gcloud functions describe ${{ env.FUNCTION_NAME }} --gen2 --region europe-west2 --format json | jq .url -r)" >> $GITHUB_OUTPUT
 
-      - name: Automatic Tagging of Releases
-        id: increment-git-tag
-        run: |
-          bash ./scripts/git_update.sh -v major
-
-      - name: "Test cloud function"
-        id: "test"
-        run: |
-          curl -X POST ${{ steps.getUrl.outputs.url }} \
-          -H "Authorization: bearer $(gcloud auth print-identity-token)" \
-          -F "video=./test/sample.mp4"
