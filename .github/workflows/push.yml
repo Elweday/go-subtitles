@@ -1,77 +1,48 @@
-name: Build and Push Go Binaries to Local repository for Multiple OS.
-
-on: 
+---
+name: deploy
+on:
+  workflow_dispatch: {}
   push:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
-  build:
+  deploy-function:
+    name: Push to GCP
     runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID || 'manim-videos' }}
+      FUNCTION_NAME: ${{ secrets.FUNCTION_NAME || 'RenderSubtitles' }}
+      REGION: ${{ secrets.REGION || 'europe-west2'}}
 
     steps:
-    - name: Checkout source code
-      uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.22'  # specify the Go version you are using
+      - uses: "google-github-actions/auth@v2"
+        id: "auth"
+        name: "Authenitication"
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          credentials_json: ${{ secrets.GCP_KEY }}
 
-    - name: Build project
-      run: |
+      - uses: google-github-actions/setup-gcloud@v2
 
-        # List of operating systems and architectures
-        OS_LIST=("windows" "linux" "darwin")
-        ARCH_LIST=("amd64" "arm64")
-        mkdir -p bin
+      - name: "Use to deploy a cloud function gen 2"
+        id: "deploy2"
+        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --gen2 --runtime=python39 --region=${{ env.REGION }} --source=./src --trigger-http --allow-unauthenticated --entry-point=main"
 
-        for OS in "${OS_LIST[@]}"; do
-          for ARCH in "${ARCH_LIST[@]}"; do
-            # Set output file name
-            OUTPUT="./bin/$OS-$ARCH"
-            env GOOS=$OS GOARCH=$ARCH; go build -o $OUTPUT
+      - name: Get url
+        id: getUrl
+        run: echo "url=$(gcloud functions describe ${{ env.FUNCTION_NAME }} --gen2 --region europe-west2 --format json | jq .url -r)" >> $GITHUB_OUTPUT
 
-            if [ $? -ne 0 ]; then
-              echo "Failed to build for $OS/$ARCH"
-              exit 1
-            else
-              echo "Successfully built $OUTPUT"
-            fi
-          done
-        done
+      - name: Automatic Tagging of Releases
+        id: increment-git-tag
+        run: |
+          bash ./scripts/git_update.sh -v major
 
-        echo "All builds completed."
-      env:
-        CGO_ENABLED: 0
-
-
-    - name: Configure git
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-    - name: Checkout target repository
-      uses: actions/checkout@v2
-      with:
-        repository: ${{ secrets.REPOSITORY }} #<target-repo-owner>/<target-repo-name>
-        token: ${{ secrets.PUSH_TOKEN }}
-        path: target-repo
-
-    - name: Copy binaries to target repository
-      run: |
-        cp -r ./bin/* ./target-repo/bin
-
-    - name: Commit and push changes
-      run: |
-        cd target-repo
-        git pull
-        git add .
-        git commit -m "Update binaries for multiple OS"
-        git push
-      env:
-        GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
-      
-
-
-
+      - name: "Test cloud function"
+        id: "test"
+        run: |
+          curl -X POST ${{ steps.getUrl.outputs.url }} \
+          -H "Authorization: bearer $(gcloud auth print-identity-token)" \
+          -F "video=./test/sample.mp4"

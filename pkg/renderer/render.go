@@ -163,7 +163,6 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 		return
 	}
 	*/
-
 	regFont, err1 := os.ReadFile(filepath.Join("assets", "fonts", "Montserrat-Medium.ttf"))
 	boldFont, err2 := os.ReadFile(filepath.Join("assets", "fonts", "Montserrat-Bold.ttf"))
 	if err1 != nil || err2 != nil {
@@ -227,8 +226,6 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 		arr = append(arr, m[i])
 	}
 
-	fmt.Println("images created")
-
 	aspectRatio := fmt.Sprintf("%dx%d", vid.Opts.Width, vid.Opts.Height)
 	offset := 0.0
 	videoHeight := float64(vid.Opts.FontSize)*float64(vid.Opts.MaxLines)*vid.Opts.LineSpacing + 2*float64(vid.Opts.Padding)
@@ -245,7 +242,7 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 	video, err := FFmpegCombineImagesToVideo(arr, vid.InputVideo, aspectRatio, vid.Opts.FPS, offset)
 
 	vid.OutputVideo = video
-
+	fmt.Println("video rendered")
 	return err
 
 }

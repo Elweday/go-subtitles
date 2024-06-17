@@ -11,7 +11,6 @@ require (
 	github.com/fogleman/gg v1.3.0
 	github.com/goki/freetype v1.0.5
 	github.com/google/uuid v1.6.0
-	github.com/joho/godotenv v1.5.1
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f
 	golang.org/x/image v0.15.0
 	google.golang.org/api v0.177.0
