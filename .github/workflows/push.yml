@@ -29,7 +29,7 @@ jobs:
 
       - name: "Use to deploy a cloud function gen 2"
         id: "deploy2"
-        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --gen2 --runtime=python39 --region=${{ env.REGION }} --source=./src --trigger-http --allow-unauthenticated --entry-point=main"
+        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --gen2 --runtime=go122 --region=${{ env.REGION }} --source=. --trigger-http --allow-unauthenticated --entry-point=entry"
 
       - name: Get url
         id: getUrl
