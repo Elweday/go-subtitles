@@ -163,8 +163,12 @@ func (vid *VidoePayload) RenderWithSubtitles() error {
 		return
 	}
 	*/
-	regFont, err1 := os.ReadFile(filepath.Join("assets", "fonts", "Montserrat-Medium.ttf"))
-	boldFont, err2 := os.ReadFile(filepath.Join("assets", "fonts", "Montserrat-Bold.ttf"))
+	PREFIX := "serverless_function_source_code"
+	if os.Getenv("GO_ENVIRONMENT") == "DEV" {
+		PREFIX = ""
+	}
+	regFont, err1 := os.ReadFile(filepath.Join(PREFIX, "assets", "fonts", "Montserrat-Medium.ttf"))
+	boldFont, err2 := os.ReadFile(filepath.Join(PREFIX, "assets", "fonts", "Montserrat-Bold.ttf"))
 	if err1 != nil || err2 != nil {
 		return fmt.Errorf("failed to read fonts: %v, %v", err1, err2)
 	}
