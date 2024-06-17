@@ -29,7 +29,7 @@ jobs:
 
       - name: "Deploy Function"
         id: "deploy2"
-        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --memory=512MiB  --gen2 --runtime=go122 --region=${{ env.REGION }} --source=. --trigger-http --allow-unauthenticated --entry-point=RenderSubtitles"
+        run: "gcloud functions deploy ${{ env.FUNCTION_NAME }} --memory=1GiB  --gen2 --runtime=go122 --region=${{ env.REGION }} --source=. --trigger-http --allow-unauthenticated --entry-point=RenderSubtitles"
 
       - name: Get url
         id: getUrl
